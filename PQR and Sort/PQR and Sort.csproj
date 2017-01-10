@@ -25,6 +25,7 @@
     <Content Include="app.css" />
     <Content Include="index.html" />
     <None Include="Scripts\jquery-3.1.1.intellisense.js" />
+    <Content Include="readme.txt" />
     <Content Include="Scripts\jquery-3.1.1.js" />
     <Content Include="Scripts\jquery-3.1.1.min.js" />
     <Content Include="Scripts\jquery-3.1.1.slim.js" />
@@ -80,7 +81,7 @@
     <TypeScriptCompileOnSaveEnabled>True</TypeScriptCompileOnSaveEnabled>
     <TypeScriptNoImplicitAny>True</TypeScriptNoImplicitAny>
     <TypeScriptModuleKind>System</TypeScriptModuleKind>
-    <TypeScriptOutFile>out/pqr.js</TypeScriptOutFile>
+    <TypeScriptOutFile>out/pqr.user.js</TypeScriptOutFile>
     <TypeScriptOutDir />
     <TypeScriptGeneratesDeclarations>False</TypeScriptGeneratesDeclarations>
     <TypeScriptNoEmitOnError>True</TypeScriptNoEmitOnError>
