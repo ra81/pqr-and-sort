@@ -12,7 +12,9 @@
 function run() {
 
     let $ = jQuery;
-    let realm = getRealm(window.location.pathname);
+    let realm = getRealm();
+    if (realm == null)
+        throw new Error("realm not found");
 
     // если много страниц то установим макс число на страницу и перезагрузимся
     let $pages = $('ul.pager_list li');
@@ -312,38 +314,34 @@ function run() {
             }
         }
     }
-
-    function numberfy(str: string): number {
-        // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо -1 если не получилось преобразовать.
-
-        if (String(str) === 'Не огр.' ||
-            String(str) === 'Unlim.' ||
-            String(str) === 'Не обм.' ||
-            String(str) === 'N’est pas limité' ||
-            String(str) === 'No limitado' ||
-            String(str) === '无限' ||
-            String(str) === 'Nicht beschr.') {
-            return Number.POSITIVE_INFINITY;
-        } else {
-            return parseFloat(str.replace(/[\s\$\%\©]/g, "")) || -1;
-            //return parseFloat(String(variable).replace(/[\s\$\%\©]/g, "")) || 0; //- так сделано чтобы variable когда undef получалась строка "0"
-        }
-    };
-
-    function getRealm(pathname: string): string | null {
-        // https://*virtonomic*.*/*/main/globalreport/marketing/by_trade_at_cities/*
-        // https://*virtonomic*.*/*/window/globalreport/marketing/by_trade_at_cities/*
-        let rx = new RegExp(/\/?([a-zA-Z]+)\/.+/ig);
-        let m = rx.exec(pathname);
-        if (m == null)
-            return null;
-
-        return m[1];
-    }
 };
 
+function getRealm(): string | null {
+    // https://*virtonomic*.*/*/main/globalreport/marketing/by_trade_at_cities/*
+    // https://*virtonomic*.*/*/window/globalreport/marketing/by_trade_at_cities/*
+    let rx = new RegExp(/https:\/\/virtonomic[A-Za-z]+\.[a-zA-Z]+\/([a-zA-Z]+)\/.+/ig);
+    let m = rx.exec(document.location.href);
+    if (m == null)
+        return null;
+
+    return m[1];
+}
+
+function numberfy(str: string): number {
+    // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо -1 если не получилось преобразовать.
+
+    if (String(str) === 'Не огр.' ||
+        String(str) === 'Unlim.' ||
+        String(str) === 'Не обм.' ||
+        String(str) === 'N’est pas limité' ||
+        String(str) === 'No limitado' ||
+        String(str) === '无限' ||
+        String(str) === 'Nicht beschr.') {
+        return Number.POSITIVE_INFINITY;
+    } else {
+        return parseFloat(str.replace(/[\s\$\%\©]/g, "")) || -1;
+        //return parseFloat(String(variable).replace(/[\s\$\%\©]/g, "")) || 0; //- так сделано чтобы variable когда undef получалась строка "0"
+    }
+}
+
 $(document).ready(() => run());
-//// Хак, что бы получить полноценный доступ к DOM >:]
-//var script = document.createElement("script");
-//script.textContent = '(' + run.toString() + ')();';
-//document.documentElement.appendChild(script);

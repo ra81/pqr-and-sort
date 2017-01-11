@@ -10,7 +10,9 @@
 // ==/UserScript==
 function run() {
     var $ = jQuery;
-    var realm = getRealm(window.location.pathname);
+    var realm = getRealm();
+    if (realm == null)
+        throw new Error("realm not found");
     // если много страниц то установим макс число на страницу и перезагрузимся
     var $pages = $('ul.pager_list li');
     if ($pages.length > 2) {
@@ -206,36 +208,31 @@ function run() {
             }
         }
     }
-    function numberfy(str) {
-        // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо -1 если не получилось преобразовать.
-        if (String(str) === 'Не огр.' ||
-            String(str) === 'Unlim.' ||
-            String(str) === 'Не обм.' ||
-            String(str) === 'N’est pas limité' ||
-            String(str) === 'No limitado' ||
-            String(str) === '无限' ||
-            String(str) === 'Nicht beschr.') {
-            return Number.POSITIVE_INFINITY;
-        }
-        else {
-            return parseFloat(str.replace(/[\s\$\%\©]/g, "")) || -1;
-        }
-    }
-    ;
-    function getRealm(pathname) {
-        // https://*virtonomic*.*/*/main/globalreport/marketing/by_trade_at_cities/*
-        // https://*virtonomic*.*/*/window/globalreport/marketing/by_trade_at_cities/*
-        var rx = new RegExp(/\/?([a-zA-Z]+)\/.+/ig);
-        var m = rx.exec(pathname);
-        if (m == null)
-            return null;
-        return m[1];
-    }
 }
 ;
+function getRealm() {
+    // https://*virtonomic*.*/*/main/globalreport/marketing/by_trade_at_cities/*
+    // https://*virtonomic*.*/*/window/globalreport/marketing/by_trade_at_cities/*
+    var rx = new RegExp(/https:\/\/virtonomic[A-Za-z]+\.[a-zA-Z]+\/([a-zA-Z]+)\/.+/ig);
+    var m = rx.exec(document.location.href);
+    if (m == null)
+        return null;
+    return m[1];
+}
+function numberfy(str) {
+    // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо -1 если не получилось преобразовать.
+    if (String(str) === 'Не огр.' ||
+        String(str) === 'Unlim.' ||
+        String(str) === 'Не обм.' ||
+        String(str) === 'N’est pas limité' ||
+        String(str) === 'No limitado' ||
+        String(str) === '无限' ||
+        String(str) === 'Nicht beschr.') {
+        return Number.POSITIVE_INFINITY;
+    }
+    else {
+        return parseFloat(str.replace(/[\s\$\%\©]/g, "")) || -1;
+    }
+}
 $(document).ready(function () { return run(); });
-//// Хак, что бы получить полноценный доступ к DOM >:]
-//var script = document.createElement("script");
-//script.textContent = '(' + run.toString() + ')();';
-//document.documentElement.appendChild(script); 
 //# sourceMappingURL=pqr.user.js.map
