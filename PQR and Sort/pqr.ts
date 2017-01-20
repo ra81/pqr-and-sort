@@ -6,7 +6,7 @@
 // @include        http*://virtonomic*.*/*/window/unit/supply/create/*/step2
 // @include        http*://virtonomic*.*/*/window/unit/equipment/*
 // @include        http*://virtonomic*.*/*/main/globalreport/marketing/by_products/*
-// @version        1.0
+// @version        1.1
 // ==/UserScript==
 
 function run() {
@@ -19,11 +19,11 @@ function run() {
     // если много страниц то установим макс число на страницу и перезагрузимся
     let $pages = $('ul.pager_list li');
     if ($pages.length > 2) {
-        let pagerUrl = $('ul.pager_options li').last().find('a').attr('href');
+        let $pager = $('ul.pager_options li').last();
+        let num = $pager.text().trim();
+        let pagerUrl = $pager.find('a').attr('href').replace(num, "10000");
         //debugger;
-        $.get(pagerUrl, (data, status, jqXHR) => {
-            location.reload();
-        })
+        $.get(pagerUrl, (data, status, jqXHR) => location.reload());
 
         return;
     }
@@ -327,6 +327,10 @@ function getRealm(): string | null {
     return m[1];
 }
 
+/**
+ * Оцифровывает строку. Возвращает всегда либо Number.POSITIVE_INFINITY либо 0
+ * @param variable любая строка.
+ */
 function numberfy(str: string): number {
     // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо -1 если не получилось преобразовать.
 
@@ -339,9 +343,10 @@ function numberfy(str: string): number {
         String(str) === 'Nicht beschr.') {
         return Number.POSITIVE_INFINITY;
     } else {
-        return parseFloat(str.replace(/[\s\$\%\©]/g, "")) || -1;
-        //return parseFloat(String(variable).replace(/[\s\$\%\©]/g, "")) || 0; //- так сделано чтобы variable когда undef получалась строка "0"
+        // если str будет undef null или что то страшное, то String() превратит в строку после чего парсинг даст NaN
+        // не будет эксепшнов
+        let n = parseFloat(String(str).replace(/[\s\$\%\©]/g, ""));
+        return isNaN(n) ? -1 : n;
     }
 }
-
 $(document).ready(() => run());
