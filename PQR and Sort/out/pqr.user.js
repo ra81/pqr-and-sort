@@ -7,7 +7,7 @@
 // @include        http*://virtonomic*.*/*/window/unit/equipment/*
 // @include        http*://virtonomic*.*/*/main/globalreport/marketing/by_products/*
 // @require        https://code.jquery.com/jquery-3.1.1.min.js
-// @version        1.1
+// @version        1.3
 // ==/UserScript== 
 // 
 // Набор вспомогательных функций для использования в других проектах. Универсальные
@@ -164,238 +164,184 @@ function run() {
     if (rxProducts.test(path))
         workProduct();
     function workProduct() {
-        var $headers = $('.grid th');
-        $headers.eq(4).after("<th><div class=\"ordertool\">\n                <table class=\"ordercont\"><tbody>\n                    <tr>\n\t                    <td class=\"title-ordertool\">PQR</td>\n\t                    <td class=\"arrows\">\n                            <a id=\"pqrasc\" href=\"#\"><img src=\"/img/asc.gif\" alt=\"^\" width=\"9\" height=\"6\" border=\"0\"></a>\n                            <a id=\"pqrdesc\" href=\"#\"><img src=\"/img/desc.gif\" alt=\"v\" width=\"9\" height=\"6\" border=\"0\"></a>\n                        </td>\n                    </tr>\n                </tbody></table>\n            </div></th>");
-        var $rows = $('.grid').find('img[src="/img/supplier_add.gif"]').closest('tr');
-        var order = [];
-        $rows.each(function (i, e) {
-            var $this = $(e);
-            var $price = $this.find("td:nth-child(5)");
-            var $qual = $this.find("td:nth-child(4)");
-            if ($price.length !== $qual.length || $price.length !== 1 || $qual.length !== 1)
-                alert("Ошибка поиска цены и качества товара в pqr скрипте. Отключите его или исправьте.");
-            var price = $price.map(function (i, e) { return numberfy($(e).text()); }).get(0);
-            var qual = $qual.map(function (i, e) { return numberfy($(e).text()); }).get(0);
-            var pqr = (price / qual);
-            $price.after("<td align=\"right\" class=\"nowrap\" id='pqr_" + i + "' style='color: blue'>" + pqr.toFixed(2) + "</td>");
-            order[i] = { place: i, pqr: pqr };
-            //txt[i] = new fillArray(i, parseFloat($('#td_s' + i).text()));
-        });
-        $('#pqrasc').click(function () {
-            sort_table('asc');
+        var $pqr = $("<div id=\"pqr\" class=\"ordertool\" style=\"cursor: pointer;\">\n                <table class=\"ordercont\">\n                <tbody>\n                    <tr>\n\t                    <td class=\"title-ordertool\">PQR</td>\n\t                    <td class=\"arrows\">\n                            <a id=\"pqrasc\" href=\"#\"><img src=\"/img/asc.gif\" alt=\"^\" width=\"9\" height=\"6\" border=\"0\"></a>\n                            <a id=\"pqrdesc\" href=\"#\"><img src=\"/img/desc.gif\" alt=\"v\" width=\"9\" height=\"6\" border=\"0\"></a>\n                        </td>\n                    </tr>\n                </tbody>\n                </table>\n                <span id=\"sort\" class=\"subvalue\">none</span>\n            </div>");
+        $('table.grid th').eq(4).after($pqr.wrapAll("<th></th>").closest("th"));
+        var $rows = closestByTagName($('table.grid').find('img[src="/img/supplier_add.gif"]'), "tr");
+        // спарсим ряды в объект который будем сортировать. сразу и pqr посчитаем
+        var priceSel = function ($r) { return $r.find("td:nth-child(5)"); };
+        var qualSel = function ($r) { return $r.find("td:nth-child(4)"); };
+        var order = parseRows($rows, priceSel, qualSel);
+        // пропихнем везде ячейку со значением pqr
+        for (var i = 0; i < order.length; i++)
+            priceSel(order[i].$r).after(buildHtmlTD(order[i].place, order[i].pqr));
+        $pqr.on("click", function (event) {
+            onClick($pqr, event, sort_table);
             return false;
         });
-        $('#pqrdesc').click(function () {
-            sort_table('desc');
-            return false;
-        });
-        // сразу вызываю сортировку
-        //$('#pqrasc').trigger('click');
         function sort_table(type) {
-            if (type === "asc")
-                order.sort(function (a, b) {
-                    if (a.pqr > b.pqr)
-                        return 1;
-                    if (a.pqr < b.pqr)
-                        return -1;
-                    return 0;
-                });
-            if (type === "desc")
-                order.sort(function (a, b) {
-                    if (a.pqr > b.pqr)
-                        return -1;
-                    if (a.pqr < b.pqr)
-                        return 1;
-                    return 0;
-                });
+            var $start = $("table.grid tr").first();
+            order = sortData(order, type);
             var odd = false;
-            for (var i = 0; i < order.length - 1; i++) {
-                var $r0 = $rows.find("#pqr_" + order[i].place).closest('tr');
-                var $r1 = $rows.find("#pqr_" + order[i + 1].place).closest('tr');
-                $r0.after($r1);
+            for (var i = order.length - 1; i >= 0; i--) {
+                var $r0 = order[i].$r;
                 $r0.removeClass('even odd').addClass(odd ? 'odd' : 'even');
+                $start.after($r0);
                 odd = odd ? false : true;
             }
         }
     }
     function workEquipment() {
-        var $headers = $('#mainTable th');
-        $headers.eq(3).after("<th rowspan=\"2\">\n             <div class=\"ordertool\">\n                <table class=\"ordercont\" >\n                <tbody>\n                    <tr>\n                        <td class=\"title-ordertool\"> PQR </td>\n                        <td class=\"arrows\">\n                            <a id=\"pqrasc\" href=\"#\"><img src=\"/img/asc.gif\" alt= \"^\" width= \"9\" height= \"6\" border= \"0\"></a>\n                            <a id=\"pqrdesc\" href=\"#\"><img src=\"/img/desc.gif\" alt= \"v\" width= \"9\" height= \"6\" border= \"0\"></a>\n                        </td>\n                    </tr>\n                </tbody>\n                </table>\n            </div>\n            </th>");
-        var $rows = $('#mainTable').find('td.choose').closest('tr');
-        var order = [];
-        $rows.each(function (i, e) {
-            var $this = $(e);
-            var $price = $this.find("td:nth-child(8)");
-            var $qual = $this.find("td:nth-child(9)");
-            if ($price.length !== $qual.length || $price.length !== 1 || $qual.length !== 1)
-                alert("Ошибка поиска цены и качества товара в pqr скрипте. Отключите его или исправьте.");
-            var price = $price.map(function (i, e) { return numberfy($(e).text()); }).get(0);
-            var qual = $qual.map(function (i, e) { return numberfy($(e).text()); }).get(0);
-            var pqr = (price / qual);
-            $qual.after("<td class='digits' id='pqr_" + i + "' style='color: blue'>" + pqr.toFixed(2) + "</td>");
-            order[i] = { place: i, pqr: pqr };
-            //txt[i] = new fillArray(i, parseFloat($('#td_s' + i).text()));
-        });
-        $('#pqrasc').click(function () {
-            sort_table('asc');
+        var $pqr = $("<div id=\"pqr\" class=\"ordertool style=\"cursor: pointer;\">\n                <table class=\"ordercont\" >\n                <tbody>\n                    <tr>\n                        <td class=\"title-ordertool\"> PQR </td>\n                        <td class=\"arrows\">\n                            <a id=\"pqrasc\" href=\"#\"><img src=\"/img/asc.gif\" alt= \"^\" width= \"9\" height= \"6\" border= \"0\"></a>\n                            <a id=\"pqrdesc\" href=\"#\"><img src=\"/img/desc.gif\" alt= \"v\" width= \"9\" height= \"6\" border= \"0\"></a>\n                        </td>\n                    </tr>\n                </tbody>\n                </table>\n                <span id=\"sort\" class=\"add_info\">none</span>\n            </div>");
+        // завернем в хедер.
+        $('#mainTable th').eq(3).after($pqr.wrapAll("<th rowspan=2></th>").closest("th"));
+        var $rows = $('#mainTable').find('tr[id^=r]');
+        // спарсим ряды в объект который будем сортировать. сразу и pqr посчитаем
+        var priceSel = function ($r) { return $r.find("td:nth-child(8)"); };
+        var qualSel = function ($r) { return $r.find("td:nth-child(9)"); };
+        var order = parseRows($rows, priceSel, qualSel);
+        // пропихнем везде ячейку со значением pqr
+        for (var i = 0; i < order.length; i++)
+            priceSel(order[i].$r).after(buildHtmlTD(order[i].place, order[i].pqr));
+        $pqr.on("click", function (event) {
+            onClick($pqr, event, sort_table);
             return false;
         });
-        $('#pqrdesc').click(function () {
-            sort_table('desc');
-            return false;
-        });
-        // сразу вызываю сортировку
-        //$('#pqrasc').trigger('click');
         function sort_table(type) {
-            if (type === "asc")
-                order.sort(function (a, b) {
-                    if (a.pqr > b.pqr)
-                        return 1;
-                    if (a.pqr < b.pqr)
-                        return -1;
-                    return 0;
-                });
-            if (type === "desc")
-                order.sort(function (a, b) {
-                    if (a.pqr > b.pqr)
-                        return -1;
-                    if (a.pqr < b.pqr)
-                        return 1;
-                    return 0;
-                });
+            var $start = $("#table_header");
+            order = sortData(order, type);
             var odd = false;
-            for (var i = 0; i < order.length - 1; i++) {
-                var $r0 = $rows.find("#pqr_" + order[i].place).closest('tr');
-                var $r1 = $rows.find("#pqr_" + order[i + 1].place).closest('tr');
-                $r0.after($r1);
+            for (var i = order.length - 1; i >= 0; i--) {
+                var $r0 = order[i].$r;
                 $r0.removeClass('even odd').addClass(odd ? 'odd' : 'even');
+                $start.after($r0);
                 odd = odd ? false : true;
             }
         }
     }
     function workSupply() {
-        var $pqr = $("     <div id=\"pqr\" class=\"field_title\" style=\"cursor: pointer;\">PQR\n                                <div class=\"asc\" title=\"\u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0430 \u043F\u043E \u0432\u043E\u0437\u0440\u0430\u0441\u0442\u0430\u043D\u0438\u044E\">\n                                    <a id=\"pqrasc\" href=\"#\"><img src=\"/img/up_gr_sort.png\"></a>\n                                </div>\n                                <div class=\"desc\" title=\"\u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0430 \u043F\u043E \u0443\u0431\u044B\u0432\u0430\u043D\u0438\u044E\">\n                                    <a id=\"pqrdesc\" href=\"#\"><img src=\"/img/down_gr_sort.png\"></a>\n                                </div>\n                            </div>\n                            <span id=\"sort\" class=\"subvalue\">none</span>");
-        var $headers = $("#supply_content th");
-        $headers.eq(4).after($pqr.wrapAll("<th></th>").closest("th")); // завернем в хедер.
+        var $pqr = $("     <div id=\"pqr\" class=\"field_title\" style=\"cursor: pointer;\">PQR\n                                <div>\n                                <div class=\"asc\" title=\"\u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0430 \u043F\u043E \u0432\u043E\u0437\u0440\u0430\u0441\u0442\u0430\u043D\u0438\u044E\">\n                                    <a id=\"pqrasc\" href=\"#\"><img src=\"/img/up_gr_sort.png\"></a>\n                                </div>\n                                <div class=\"desc\" title=\"\u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0430 \u043F\u043E \u0443\u0431\u044B\u0432\u0430\u043D\u0438\u044E\">\n                                    <a id=\"pqrdesc\" href=\"#\"><img src=\"/img/down_gr_sort.png\"></a>\n                                </div>\n                                <span id=\"sort\" class=\"subvalue\">none</span>\n                                </div>\n                            </div>");
+        // завернем в хедер.
+        $("#supply_content th").eq(4).after($pqr.wrapAll("<th></th>").closest("th"));
         var $rows = $("tr[id^=r]"); // все поставщики имеют id=r4534534 
-        var order = [];
-        $rows.each(function (i, e) {
-            var $this = $(e);
-            var $price = $this.find("td:nth-child(6)");
-            var $qual = $this.find("td:nth-child(7)");
-            if ($price.length !== $qual.length || $price.length !== 1 || $qual.length !== 1)
-                alert("Ошибка поиска цены и качества товара в pqr скрипте. Отключите его или исправьте.");
-            // в принципе такое может быть что кача нет вообще для пустых складов. Поэтому надо учитывать
-            var price = numberfyOrError($price.eq(0).text(), -2);
-            var qual = numberfyOrError($qual.eq(0).text(), -2);
-            var pqr = (price <= 0 || qual <= 0) ? 0 : (price / qual);
-            $qual.after(buildHtmlTD(i, pqr));
-            order[i] = { place: i, pqr: pqr };
-            //txt[i] = new fillArray(i, parseFloat($('#td_s' + i).text()));
-        });
+        // спарсим ряды в объект который будем сортировать. сразу и pqr посчитаем
+        var priceSel = function ($r) { return $r.find("td:nth-child(6)"); };
+        var qualSel = function ($r) { return $r.find("td:nth-child(7)"); };
+        var order = parseRows($rows, priceSel, qualSel);
+        // пропихнем везде ячейку со значением pqr
+        for (var i = 0; i < order.length; i++)
+            qualSel(order[i].$r).after(buildHtmlTD(order[i].place, order[i].pqr));
         $pqr.on("click", function (event) {
-            // если кликали на картинку то нам надо взять родительский <a> тег чтобы взять id
-            var $el = $(event.target);
-            if ($el.is("img"))
-                $el = $el.parent(); //
-            var type = Sort.none;
-            // определим какой тим сортировки надо делать
-            if ($el.is("#pqrasc"))
-                type = Sort.asc;
-            else if ($el.is("#pqrdesc"))
-                type = Sort.desc;
-            else {
-                // если кликали не на стрелки, тада посмотрим какой щас тип сортировки
-                if ($pqr.hasClass("asc"))
-                    type = Sort.desc;
-                else if ($pqr.hasClass("desc"))
-                    type = Sort.none;
-                else
-                    type = Sort.asc;
-            }
-            // выполним действия
-            var $span = $("#sort");
-            switch (type) {
-                case Sort.none:
-                    $pqr.removeClass("asc desc");
-                    $span.text("none");
-                    break;
-                case Sort.asc:
-                    $pqr.removeClass("desc");
-                    $pqr.addClass("asc");
-                    $span.text("asc");
-                    break;
-                case Sort.desc:
-                    $pqr.removeClass("asc");
-                    $pqr.addClass("desc");
-                    $span.text("desc");
-                    break;
-            }
-            sort_table(type);
+            onClick($pqr, event, sort_table);
             return false;
         });
-        //$('#pqrasc').click(() => {
-        //    sort_table('asc');
-        //    return false;
-        //});
-        //$('#pqrdesc').click(() => {
-        //    sort_table('desc');
-        //    return false;
-        //});
-        // сразу вызываю сортировку
-        //$('#pqrasc').trigger('click');
         function sort_table(type) {
-            switch (type) {
-                case Sort.asc:
-                    order.sort(function (a, b) {
-                        if (a.pqr > b.pqr)
-                            return 1;
-                        if (a.pqr < b.pqr)
-                            return -1;
-                        return 0;
-                    });
-                    break;
-                case Sort.desc:
-                    order.sort(function (a, b) {
-                        if (a.pqr > b.pqr)
-                            return -1;
-                        if (a.pqr < b.pqr)
-                            return 1;
-                        return 0;
-                    });
-                    break;
-                case Sort.none:
-                    order.sort(function (a, b) {
-                        if (a.place > b.place)
-                            return 1;
-                        if (a.place < b.place)
-                            return -1;
-                        return 0;
-                    });
-            }
-            for (var i = 0; i < order.length - 1; i++) {
+            var $start = $("table.unit-list-2014 tbody");
+            order = sortData(order, type);
+            // вставлять будем задом наперед. Просто начиная с шапки таблицы вставляем в самый верх
+            // сначала идут последние постепенно дойдем до первых. Самый быстрый способ вышел
+            for (var i = order.length - 1; i >= 0; i--) {
                 // если есть заказ, то после строки будет еще аппендикс. его тож надо сортирнуть
-                var $r0 = $rows.find("#pqr_" + order[i].place).closest('tr');
+                var $r0 = order[i].$r;
                 var $append0 = $r0.next('tr.ordered');
-                var $r1 = $rows.find("#pqr_" + order[i + 1].place).closest('tr');
-                var $append1 = $r1.next('tr.ordered');
-                if ($append0.length > 0) {
-                    if ($append1.length)
-                        $append0.after($append1);
-                    $append0.after($r1);
-                }
-                else {
-                    if ($append1.length)
-                        $r0.after($append1);
-                    $r0.after($r1);
-                }
+                if ($append0.length > 0)
+                    $r0 = $r0.add($append0);
+                $start.prepend($r0);
             }
         }
     }
-    function buildHtmlTD(i, pqr) {
-        return "<td id='pqr_" + i + "' class='pqr_data' style='color: blue; width: 70px; text-align: right;'>" + pqr.toFixed(2) + "</td>";
+    function onClick($pqr, event, sorter) {
+        // если кликали на картинку то нам надо взять родительский <a> тег чтобы взять id
+        var $el = $(event.target);
+        if ($el.is("img"))
+            $el = $el.parent(); //
+        var type = Sort.none;
+        // определим какой тим сортировки надо делать
+        if ($el.is("#pqrasc"))
+            type = Sort.asc;
+        else if ($el.is("#pqrdesc"))
+            type = Sort.desc;
+        else {
+            // если кликали не на стрелки, тада посмотрим какой щас тип сортировки
+            if ($pqr.hasClass("asc"))
+                type = Sort.desc;
+            else if ($pqr.hasClass("desc"))
+                type = Sort.none;
+            else
+                type = Sort.asc;
+        }
+        // выполним действия
+        var $span = $pqr.find("#sort");
+        switch (type) {
+            case Sort.none:
+                $pqr.removeClass("asc desc");
+                $span.text("none");
+                break;
+            case Sort.asc:
+                $pqr.removeClass("desc");
+                $pqr.addClass("asc");
+                $span.text("asc");
+                break;
+            case Sort.desc:
+                $pqr.removeClass("asc");
+                $pqr.addClass("desc");
+                $span.text("desc");
+                break;
+        }
+        sorter(type);
+        return false;
     }
 }
 ;
+function parseRows($rows, priceSelector, qualSelector) {
+    var res = [];
+    for (var i = 0; i < $rows.length; i++) {
+        var $r = $rows.eq(i);
+        var $price = priceSelector($r);
+        var $qual = qualSelector($r);
+        if ($price.length !== $qual.length || $price.length !== 1 || $qual.length !== 1)
+            alert("Ошибка поиска цены и качества товара в pqr скрипте. Отключите его или исправьте.");
+        // в принципе такое может быть что кача нет вообще для пустых складов. Поэтому надо учитывать
+        var price = numberfyOrError($price.eq(0).text(), -2);
+        var qual = numberfyOrError($qual.eq(0).text(), -2);
+        var pqr = (price <= 0 || qual <= 0) ? 0 : (price / qual);
+        //$qual.after(buildHtmlTD(i, pqr));
+        res.push({ place: i, pqr: pqr, $r: $r });
+    }
+    return res;
+}
+function sortData(items, type) {
+    switch (type) {
+        case Sort.asc:
+            items.sort(function (a, b) {
+                if (a.pqr > b.pqr)
+                    return 1;
+                if (a.pqr < b.pqr)
+                    return -1;
+                return 0;
+            });
+            break;
+        case Sort.desc:
+            items.sort(function (a, b) {
+                if (a.pqr > b.pqr)
+                    return -1;
+                if (a.pqr < b.pqr)
+                    return 1;
+                return 0;
+            });
+            break;
+        case Sort.none:
+            items.sort(function (a, b) {
+                if (a.place > b.place)
+                    return 1;
+                if (a.place < b.place)
+                    return -1;
+                return 0;
+            });
+    }
+    return items;
+}
+function buildHtmlTD(i, pqr) {
+    return "<td id='pqr_" + i + "' class='pqr_data' style='color: blue; width: 70px; text-align: right;'>" + pqr.toFixed(2) + "</td>";
+}
 $(document).ready(function () { return run(); });
 //# sourceMappingURL=pqr.user.js.map

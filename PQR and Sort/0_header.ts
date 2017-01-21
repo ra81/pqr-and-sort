@@ -7,5 +7,5 @@
 // @include        http*://virtonomic*.*/*/window/unit/equipment/*
 // @include        http*://virtonomic*.*/*/main/globalreport/marketing/by_products/*
 // @require        https://code.jquery.com/jquery-3.1.1.min.js
-// @version        1.1
+// @version        1.3
 // ==/UserScript==
