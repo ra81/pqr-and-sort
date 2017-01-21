@@ -32,7 +32,8 @@
     <Content Include="web.config" />
   </ItemGroup>
   <ItemGroup>
-    <TypeScriptCompile Include="pqr.ts" />
+    <TypeScriptCompile Include="0_header.ts" />
+    <TypeScriptCompile Include="1_pqr.ts" />
     <TypeScriptCompile Include="Scripts\typings\jquery\jquery.d.ts" />
   </ItemGroup>
   <ItemGroup>

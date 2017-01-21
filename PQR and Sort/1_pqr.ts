@@ -1,13 +1,6 @@
-﻿// ==UserScript==
-// @name           Virtonomica: PQR+sort
-// @namespace      virtonomica
-// @author         ra81
-// @description    Цена за единицу качества + сортировка
-// @include        http*://virtonomic*.*/*/window/unit/supply/create/*/step2
-// @include        http*://virtonomic*.*/*/window/unit/equipment/*
-// @include        http*://virtonomic*.*/*/main/globalreport/marketing/by_products/*
-// @version        1.1
-// ==/UserScript==
+﻿/// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
+
+enum Sort { none, asc, desc };
 
 function run() {
 
@@ -221,10 +214,7 @@ function run() {
 
     function workSupply() {
 
-        let $headers = $("#supply_content th");
-        $headers.eq(4).after(`
-                          <th>
-                            <div class="field_title">PQR
+        let $pqr = $(`     <div id="pqr" class="field_title" style="cursor: pointer;">PQR
                                 <div class="asc" title="сортировка по возрастанию">
                                     <a id="pqrasc" href="#"><img src="/img/up_gr_sort.png"></a>
                                 </div>
@@ -232,10 +222,12 @@ function run() {
                                     <a id="pqrdesc" href="#"><img src="/img/down_gr_sort.png"></a>
                                 </div>
                             </div>
-                          </th>`);
+                            <span id="sort" class="subvalue">none</span>`);
 
+        let $headers = $("#supply_content th");
+        $headers.eq(4).after($pqr.wrapAll("<th></th>").closest("th"));  // завернем в хедер.
 
-        let $rows = $('#supply_content td.brandname_img').closest('tr');
+        let $rows = $("tr[id^=r]"); // все поставщики имеют id=r4534534 
         let order: { place: number, pqr: number }[] = [];
 
         $rows.each((i, e) => {
@@ -246,50 +238,110 @@ function run() {
             if ($price.length !== $qual.length || $price.length !== 1 || $qual.length !== 1)
                 alert("Ошибка поиска цены и качества товара в pqr скрипте. Отключите его или исправьте.");
 
-            let price = $price.map((i, e) => numberfy($(e).text())).get(0) as any as number;
-            let qual = $qual.map((i, e) => numberfy($(e).text())).get(0) as any as number;
+            // в принципе такое может быть что кача нет вообще для пустых складов. Поэтому надо учитывать
+            let price = numberfyOrError($price.eq(0).text(), -2);
+            let qual = numberfyOrError($qual.eq(0).text(), -2);
 
-            let pqr = (price / qual);
-            $qual.after(`<td class='supply_data' id='pqr_${i}' style='color: blue'>${pqr.toFixed(2)}</td>`);
+            let pqr = (price <= 0 || qual <= 0) ? 0 : (price / qual);
+            $qual.after(buildHtmlTD(i, pqr));
 
             order[i] = { place: i, pqr: pqr };
             //txt[i] = new fillArray(i, parseFloat($('#td_s' + i).text()));
         });
 
-        $('#pqrasc').click(() => {
-            sort_table('asc');
+        $pqr.on("click", (event) => {
+            // если кликали на картинку то нам надо взять родительский <a> тег чтобы взять id
+            let $el = $(event.target);
+            if ($el.is("img"))
+                $el = $el.parent(); //
+
+            let type = Sort.none;
+
+            // определим какой тим сортировки надо делать
+            if ($el.is("#pqrasc"))       type = Sort.asc;
+            else if ($el.is("#pqrdesc")) type = Sort.desc;
+            else {
+                // если кликали не на стрелки, тада посмотрим какой щас тип сортировки
+                if ($pqr.hasClass("asc"))       type = Sort.desc;
+                else if ($pqr.hasClass("desc")) type = Sort.none;
+                else                            type = Sort.asc;
+            }
+
+            // выполним действия
+            let $span = $("#sort");
+            switch (type) {
+                case Sort.none:
+                    $pqr.removeClass("asc desc");
+                    $span.text("none");
+                    break;
+
+                case Sort.asc:
+                    $pqr.removeClass("desc");
+                    $pqr.addClass("asc");
+                    $span.text("asc");
+                    break;
+
+                case Sort.desc:
+                    $pqr.removeClass("asc");
+                    $pqr.addClass("desc");
+                    $span.text("desc");
+                    break;
+            }
+
+            sort_table(type);
             return false;
         });
-        $('#pqrdesc').click(() => {
-            sort_table('desc');
-            return false;
-        });
+
+        //$('#pqrasc').click(() => {
+        //    sort_table('asc');
+        //    return false;
+        //});
+        //$('#pqrdesc').click(() => {
+        //    sort_table('desc');
+        //    return false;
+        //});
 
         // сразу вызываю сортировку
         //$('#pqrasc').trigger('click');
 
-        function sort_table(type: string) {
-            if (type === "asc")
-                order.sort((a, b) => {
-                    if (a.pqr > b.pqr)
-                        return 1;
+        function sort_table(type: Sort) {
 
-                    if (a.pqr < b.pqr)
-                        return -1;
+            switch (type) {
+                case Sort.asc:
+                    order.sort((a, b) => {
+                        if (a.pqr > b.pqr)
+                            return 1;
 
-                    return 0;
-                });
+                        if (a.pqr < b.pqr)
+                            return -1;
 
-            if (type === "desc")
-                order.sort((a, b) => {
-                    if (a.pqr > b.pqr)
-                        return -1;
+                        return 0;
+                    });
+                    break;
 
-                    if (a.pqr < b.pqr)
-                        return 1;
+                case Sort.desc:
+                    order.sort((a, b) => {
+                        if (a.pqr > b.pqr)
+                            return -1;
 
-                    return 0;
-                });
+                        if (a.pqr < b.pqr)
+                            return 1;
+
+                        return 0;
+                    });
+                    break;
+
+                case Sort.none:
+                    order.sort((a, b) => {
+                        if (a.place > b.place)
+                            return 1;
+
+                        if (a.place < b.place)
+                            return -1;
+
+                        return 0;
+                    });
+            }
 
             for (let i = 0; i < order.length - 1; i++) {
                 // если есть заказ, то после строки будет еще аппендикс. его тож надо сортирнуть
@@ -314,39 +366,10 @@ function run() {
             }
         }
     }
+
+    function buildHtmlTD(i: number, pqr: number): string {
+        return `<td id='pqr_${i}' class='pqr_data' style='color: blue; width: 70px; text-align: right;'>${pqr.toFixed(2)}</td>`;
+    }
 };
 
-function getRealm(): string | null {
-    // https://*virtonomic*.*/*/main/globalreport/marketing/by_trade_at_cities/*
-    // https://*virtonomic*.*/*/window/globalreport/marketing/by_trade_at_cities/*
-    let rx = new RegExp(/https:\/\/virtonomic[A-Za-z]+\.[a-zA-Z]+\/([a-zA-Z]+)\/.+/ig);
-    let m = rx.exec(document.location.href);
-    if (m == null)
-        return null;
-
-    return m[1];
-}
-
-/**
- * Оцифровывает строку. Возвращает всегда либо Number.POSITIVE_INFINITY либо 0
- * @param variable любая строка.
- */
-function numberfy(str: string): number {
-    // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо -1 если не получилось преобразовать.
-
-    if (String(str) === 'Не огр.' ||
-        String(str) === 'Unlim.' ||
-        String(str) === 'Не обм.' ||
-        String(str) === 'N’est pas limité' ||
-        String(str) === 'No limitado' ||
-        String(str) === '无限' ||
-        String(str) === 'Nicht beschr.') {
-        return Number.POSITIVE_INFINITY;
-    } else {
-        // если str будет undef null или что то страшное, то String() превратит в строку после чего парсинг даст NaN
-        // не будет эксепшнов
-        let n = parseFloat(String(str).replace(/[\s\$\%\©]/g, ""));
-        return isNaN(n) ? -1 : n;
-    }
-}
 $(document).ready(() => run());
