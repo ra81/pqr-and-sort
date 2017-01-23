@@ -6,14 +6,50 @@
 // @include        http*://virtonomic*.*/*/window/unit/supply/create/*/step2
 // @include        http*://virtonomic*.*/*/window/unit/equipment/*
 // @include        http*://virtonomic*.*/*/main/globalreport/marketing/by_products/*
-// @require        https://code.jquery.com/jquery-3.1.1.min.js
-// @version        1.3
+// @require        https://code.jquery.com/jquery-1.11.1.min.js
+// @version        1.4
 // ==/UserScript== 
 // 
 // Набор вспомогательных функций для использования в других проектах. Универсальные
 //   /// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
-//
-//
+/**
+ * Проверяет наличие в словаре ключей. Шорт алиас для удобства.
+ * Если словарь не задать, вывалит исключение
+ * @param dict проверяемый словарь
+ */
+function isEmpty(dict) {
+    return Object.keys(dict).length === 0; // исключение на null
+}
+/**
+ * Конвертит словарь в простую текстовую строку вида "key:val, key1:val1"
+ * значения в строку конвертятся штатным toString()
+ * Создана чисто потому что в словарь нельзя засунуть методы.
+ * @param dict
+ */
+function dict2String(dict) {
+    if (isEmpty(dict))
+        return "";
+    var newItems = [];
+    for (var key in dict)
+        newItems.push(key + ":" + dict[key].toString());
+    return newItems.join(", ");
+}
+/**
+ * Проверяет что элемент есть в массиве.
+ * @param item
+ * @param arr массив НЕ null
+ */
+function isOneOf(item, arr) {
+    return arr.indexOf(item) >= 0;
+}
+// PARSE -------------------------------------------
+/**
+ * удаляет из строки все денежные и специальные символы типо процента и пробелы между цифрами
+ * @param str
+ */
+function cleanStr(str) {
+    return str.replace(/[\s\$\%\©]/g, "");
+}
 /**
  * Выдергивает реалм из текущего href ссылки если это возможно.
  */
@@ -51,7 +87,7 @@ function numberfy(str) {
     else {
         // если str будет undef null или что то страшное, то String() превратит в строку после чего парсинг даст NaN
         // не будет эксепшнов
-        var n = parseFloat(String(str).replace(/[\s\$\%\©]/g, ""));
+        var n = parseFloat(cleanStr(String(str)));
         return isNaN(n) ? -1 : n;
     }
 }
@@ -62,10 +98,10 @@ function numberfy(str) {
  * @param minVal ограничение снизу. Число.
  * @param infinity разрешена ли бесконечность
  */
-function numberfyOrError(value, minVal, infinity) {
+function numberfyOrError(str, minVal, infinity) {
     if (minVal === void 0) { minVal = 0; }
     if (infinity === void 0) { infinity = false; }
-    var n = numberfy(value);
+    var n = numberfy(str);
     if (!infinity && (n === Number.POSITIVE_INFINITY || n === Number.NEGATIVE_INFINITY))
         throw new RangeError("Получили бесконечность, что запрещено.");
     if (n <= minVal)
@@ -78,22 +114,123 @@ function numberfyOrError(value, minVal, infinity) {
  * @param str строка в которой ищем
  * @param rx паттерн который ищем
  */
-function matchedOrError(str, rx) {
+function matchedOrError(str, rx, errMsg) {
     var m = str.match(rx);
     if (m == null)
-        throw new Error("\u041F\u0430\u0442\u0442\u0435\u0440\u043D " + rx + " \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0432 " + str);
+        throw new Error(errMsg || "\u041F\u0430\u0442\u0442\u0435\u0440\u043D " + rx + " \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0432 " + str);
     if (m.length > 1)
-        throw new Error("\u041F\u0430\u0442\u0442\u0435\u0440\u043D " + rx + " \u043D\u0430\u0439\u0434\u0435\u043D \u0432 " + str + " " + m.length + " \u0440\u0430\u0437 \u0432\u043C\u0435\u0441\u0442\u043E \u043E\u0436\u0438\u0434\u0430\u0435\u043C\u043E\u0433\u043E 1");
+        throw new Error(errMsg || "\u041F\u0430\u0442\u0442\u0435\u0440\u043D " + rx + " \u043D\u0430\u0439\u0434\u0435\u043D \u0432 " + str + " " + m.length + " \u0440\u0430\u0437 \u0432\u043C\u0435\u0441\u0442\u043E \u043E\u0436\u0438\u0434\u0430\u0435\u043C\u043E\u0433\u043E 1");
     return m[0];
 }
 /**
- * Проверяет что элемент есть в массиве.
- * @param item
- * @param arr массив НЕ null
+ * Пробуем прогнать регулярное выражение на строку, если не прошло, то вывалит ошибку.
+ * иначе вернет массив. 0 элемент это найденная подстрока, остальные это найденные группы ()
+ * @param str
+ * @param rx
+ * @param errMsg
  */
-function isOneOf(item, arr) {
-    return arr.indexOf(item) >= 0;
+function execOrError(str, rx, errMsg) {
+    var m = rx.exec(str);
+    if (m == null)
+        throw new Error(errMsg || "\u041F\u0430\u0442\u0442\u0435\u0440\u043D " + rx + " \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0432 " + str);
+    return m;
 }
+/**
+ * из строки пробует извлечь все вещественные числа. Рекомендуется применять ТОЛЬКО для извлечения из текстовых строк.
+ * для простого парсинга числа пойдет numberfy
+ * Если их нет вернет null
+ * @param str
+ */
+function extractFloatPositive(str) {
+    var m = cleanStr(str).match(/\d+\.\d+/ig);
+    if (m == null)
+        return null;
+    var n = m.map(function (i, e) { return numberfyOrError($(e).text(), -1); });
+    return n;
+}
+/**
+ * По текстовой строке возвращает номер месяца начиная с 0 для января. Либо null
+ * @param str очищенная от пробелов и лишних символов строка
+ */
+function monthFromStr(str) {
+    var mnth = ["янв", "февр", "мар", "апр", "май", "июн", "июл", "авг", "сент", "окт", "нояб", "дек"];
+    for (var i = 0; i < mnth.length; i++) {
+        if (str.indexOf(mnth[i]) === 0)
+            return i;
+    }
+    return null;
+}
+/**
+ * По типовой игровой строке даты вида 10 января 55 г., 3 февраля 2017 - 22.10.12
+ * выдергивает именно дату и возвращает в виде объекта даты
+ * @param str
+ */
+function extractDate(str) {
+    var dateRx = /^(\d{1,2})\s+([а-я]+)\s+(\d{1,4})/i;
+    var m = dateRx.exec(str);
+    if (m == null)
+        return null;
+    var d = parseInt(m[1]);
+    var mon = monthFromStr(m[2]);
+    if (mon == null)
+        return null;
+    var y = parseInt(m[3]);
+    return new Date(y, mon, d);
+}
+/**
+ * из даты формирует короткую строку типа 01.12.2017
+ * @param date
+ */
+function dateToShort(date) {
+    var d = date.getDate();
+    var m = date.getMonth() + 1;
+    var yyyy = date.getFullYear();
+    var dStr = d < 10 ? "0" + d : d.toString();
+    var mStr = m < 10 ? "0" + m : m.toString();
+    return dStr + "." + mStr + "." + yyyy;
+}
+/**
+ * из строки вида 01.12.2017 формирует дату
+ * @param str
+ */
+function dateFromShort(str) {
+    var items = str.split(".");
+    var d = parseInt(items[0]);
+    if (d <= 0)
+        throw new Error("дата неправильная.");
+    var m = parseInt(items[1]) - 1;
+    if (m < 0)
+        throw new Error("месяц неправильная.");
+    var y = parseInt(items[2]);
+    if (y < 0)
+        throw new Error("год неправильная.");
+    return new Date(y, m, d);
+}
+var urlUnitMainRx = /\/\w+\/main\/unit\/view\/\d+\/?$/i;
+var urlTradeHallRx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i;
+var urlVisitorsHistoryRx = /\/[a-z]+\/main\/unit\/view\/\d+\/visitors_history\/?/i;
+function isMyUnitList() {
+    // для ссылки обязательно завершающий unit_list мы так решили
+    var rx = /\/\w+\/main\/company\/view\/\d+\/unit_list\/?$/ig;
+    if (rx.test(document.location.pathname) === false)
+        return false;
+    // помимо ссылки мы можем находиться на чужой странице юнитов
+    if ($("#mainContent > table.unit-top").length === 0
+        || $("#mainContent > table.unit-list-2014").length === 0)
+        return false;
+    return true;
+}
+function isUnitMain() {
+    return urlUnitMainRx.test(document.location.pathname);
+}
+function isShop() {
+    var $a = $("ul.tabu a[href$=trading_hall]");
+    return $a.length === 1;
+}
+function isVisitorsHistory() {
+    return urlVisitorsHistoryRx.test(document.location.pathname);
+}
+// JQUERY ----------------------------------------
 /**
  * Возвращает ближайшего родителя по имени Тэга
    работает как и closest. Если родитель не найден то не возвращает ничего для данного элемента
@@ -128,6 +265,31 @@ function getOnlyText(item) {
             res.push($(el).text()); // так как в разных браузерах текст запрашивается по разному, 
     }
     return res;
+}
+/**
+ * Пробует найти ровно 1 элемент для заданного селектора. если не нашло или нашло больше валит ошибку
+ * @param $item
+ * @param selector
+ */
+function oneOrError($item, selector) {
+    var $one = $item.find(selector);
+    if ($one.length != 1)
+        throw new Error("\u041D\u0430\u0439\u0434\u0435\u043D\u043E " + $one.length + " \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432 \u0432\u043C\u0435\u0441\u0442\u043E 1 \u0434\u043B\u044F \u0441\u0435\u043B\u0435\u043A\u0442\u043E\u0440\u0430 " + selector);
+    return $one;
+}
+// COMMON ----------------------------------------
+var $xioDebug = false;
+function logDebug(msg) {
+    var args = [];
+    for (var _i = 1; _i < arguments.length; _i++) {
+        args[_i - 1] = arguments[_i];
+    }
+    if (!$xioDebug)
+        return;
+    if (args.length === 0)
+        console.log(msg);
+    else
+        console.log(msg, args);
 }
 /// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
 var Sort;

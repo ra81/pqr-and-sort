@@ -6,6 +6,6 @@
 // @include        http*://virtonomic*.*/*/window/unit/supply/create/*/step2
 // @include        http*://virtonomic*.*/*/window/unit/equipment/*
 // @include        http*://virtonomic*.*/*/main/globalreport/marketing/by_products/*
-// @require        https://code.jquery.com/jquery-3.1.1.min.js
-// @version        1.3
+// @require        https://code.jquery.com/jquery-1.11.1.min.js
+// @version        1.4
 // ==/UserScript==
