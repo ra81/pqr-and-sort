@@ -7,7 +7,7 @@
 // @include        http*://virtonomic*.*/*/window/unit/equipment/*
 // @include        http*://virtonomic*.*/*/main/globalreport/marketing/by_products/*
 // @require        https://code.jquery.com/jquery-1.11.1.min.js
-// @version        1.4
+// @version        1.5
 // ==/UserScript== 
 // 
 // Набор вспомогательных функций для использования в других проектах. Универсальные
@@ -149,6 +149,17 @@ function extractFloatPositive(str) {
     return n;
 }
 /**
+ * из указанной строки которая должна быть ссылкой, извлекает числа. обычно это id юнита товара и так далее
+ * @param str
+ */
+function extractIntPositive(str) {
+    var m = cleanStr(str).match(/\d+/ig);
+    if (m == null)
+        return null;
+    var n = m.map(function (val, i, arr) { return numberfyOrError(val, -1); });
+    return n;
+}
+/**
  * По текстовой строке возвращает номер месяца начиная с 0 для января. Либо null
  * @param str очищенная от пробелов и лишних символов строка
  */
@@ -206,13 +217,68 @@ function dateFromShort(str) {
         throw new Error("год неправильная.");
     return new Date(y, m, d);
 }
-var urlUnitMainRx = /\/\w+\/main\/unit\/view\/\d+\/?$/i;
-var urlTradeHallRx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i;
-var urlVisitorsHistoryRx = /\/[a-z]+\/main\/unit\/view\/\d+\/visitors_history\/?/i;
+/**
+ * По заданному числу возвращает число с разделителями пробелами для удобства чтения
+ * @param num
+ */
+function sayNumber(num) {
+    if (num < 0)
+        return "-" + sayMoney(-num);
+    if (Math.round(num * 100) / 100 - Math.round(num))
+        num = Math.round(num * 100) / 100;
+    else
+        num = Math.round(num);
+    var s = num.toString();
+    var s1 = "";
+    var l = s.length;
+    var p = s.indexOf(".");
+    if (p > -1) {
+        s1 = s.substr(p);
+        l = p;
+    }
+    else {
+        p = s.indexOf(",");
+        if (p > -1) {
+            s1 = s.substr(p);
+            l = p;
+        }
+    }
+    p = l - 3;
+    while (p >= 0) {
+        s1 = ' ' + s.substr(p, 3) + s1;
+        p -= 3;
+    }
+    if (p > -3) {
+        s1 = s.substr(0, 3 + p) + s1;
+    }
+    if (s1.substr(0, 1) == " ") {
+        s1 = s1.substr(1);
+    }
+    return s1;
+}
+/**
+ * Для денег подставляет нужный символ при выводе на экран
+ * @param num
+ * @param symbol
+ */
+function sayMoney(num, symbol) {
+    var result = sayNumber(num);
+    if (symbol != null) {
+        if (num < 0)
+            result = '-' + symbol + sayNumber(Math.abs(num));
+        else
+            result = symbol + result;
+    }
+    return result;
+}
+var url_company_finance_rep_byUnit = /\/[a-z]+\/main\/company\/view\/\d+\/finance_report\/by_units$/i;
+var url_my_unit_list_rx = /\/[a-z]+\/main\/company\/view\/\d+(\/unit_list)?$/i;
+var url_unit_main_rx = /\/\w+\/main\/unit\/view\/\d+\/?$/i;
+var url_unit_finance_report = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graphical)?$/i;
+var url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i;
+var url_visitors_history_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/visitors_history\/?/i;
 function isMyUnitList() {
-    // для ссылки обязательно завершающий unit_list мы так решили
-    var rx = /\/\w+\/main\/company\/view\/\d+\/unit_list\/?$/ig;
-    if (rx.test(document.location.pathname) === false)
+    if (url_my_unit_list_rx.test(document.location.pathname) === false)
         return false;
     // помимо ссылки мы можем находиться на чужой странице юнитов
     if ($("#mainContent > table.unit-top").length === 0
@@ -221,14 +287,20 @@ function isMyUnitList() {
     return true;
 }
 function isUnitMain() {
-    return urlUnitMainRx.test(document.location.pathname);
+    return url_unit_main_rx.test(document.location.pathname);
+}
+function isUnitFinanceReport() {
+    return url_unit_finance_report.test(document.location.pathname);
+}
+function isCompanyRepByUnit() {
+    return url_company_finance_rep_byUnit.test(document.location.pathname);
 }
 function isShop() {
     var $a = $("ul.tabu a[href$=trading_hall]");
     return $a.length === 1;
 }
 function isVisitorsHistory() {
-    return urlVisitorsHistoryRx.test(document.location.pathname);
+    return url_visitors_history_rx.test(document.location.pathname);
 }
 // JQUERY ----------------------------------------
 /**
@@ -290,6 +362,28 @@ function logDebug(msg) {
         console.log(msg);
     else
         console.log(msg, args);
+}
+// SAVE & LOAD ------------------------------------
+/**
+ * По заданным параметрам создает уникальный ключик использую уникальный одинаковый по всем скриптам префикс
+ * @param realm реалм для которого сейвить. Если кросс реалмово, тогда указать null
+ * @param code строка отличающая данные скрипта от данных другого скрипта
+ * @param subid если для юнита, то указать. иначе пропустить
+ */
+function buildStoreKey(realm, code, subid) {
+    if (code.length === 0)
+        throw new RangeError("Параметр code не может быть равен '' ");
+    if (realm != null && realm.length === 0)
+        throw new RangeError("Параметр realm не может быть равен '' ");
+    if (subid != null && realm == null)
+        throw new RangeError("Как бы нет смысла указывать subid и не указывать realm");
+    var res = "^*"; // уникальная ботва которую добавляем ко всем своим данным
+    if (realm != null)
+        res += "_" + realm;
+    if (subid != null)
+        res += "_" + subid;
+    res += "_" + code;
+    return res;
 }
 /// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
 var Sort;
@@ -363,7 +457,7 @@ function run() {
         var order = parseRows($rows, priceSel, qualSel);
         // пропихнем везде ячейку со значением pqr
         for (var i = 0; i < order.length; i++)
-            priceSel(order[i].$r).after(buildHtmlTD(order[i].place, order[i].pqr));
+            qualSel(order[i].$r).after(buildHtmlTD(order[i].place, order[i].pqr));
         $pqr.on("click", function (event) {
             onClick($pqr, event, sort_table);
             return false;

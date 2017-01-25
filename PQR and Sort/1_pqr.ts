@@ -126,7 +126,7 @@ function run() {
 
         // пропихнем везде ячейку со значением pqr
         for (let i = 0; i < order.length; i++)
-            priceSel(order[i].$r).after(buildHtmlTD(order[i].place, order[i].pqr));
+            qualSel(order[i].$r).after(buildHtmlTD(order[i].place, order[i].pqr));
 
         $pqr.on("click", (event) => {
             onClick($pqr, event, sort_table);
