@@ -28,18 +28,18 @@ function run() {
 
     // проверим где мы и вызовем верную функцию
     let path = document.location.pathname;
-    let rxSupply = new RegExp(/.*\/unit\/supply\/create\/\d+\/step2\/?$/gi);
-    let rxEquip = new RegExp(/.*\/unit\/equipment\/\d+\/?$/gi);
-    let rxProducts = new RegExp(/.*\/main\/globalreport\/marketing\/by_products\/\d+\/?/gi);
-
-    if (rxSupply.test(path))
+    if (url_supply_rx.test(path))
         workSupply();
 
-    if (rxEquip.test(path))
+    if (url_equipment_rx.test(path))
         workEquipment();
 
-    if (rxProducts.test(path))
+    if (url_group_equip_rx.test(path))
+        workGroupEquipment();
+
+    if (url_products_globalrep_rx.test(path))
         workProduct();
+
 
 
     function workProduct() {
@@ -140,6 +140,63 @@ function run() {
             let odd = false;
             for (let i = order.length - 1; i >= 0; i--) {
                 let $r0 = order[i].$r;
+                $r0.removeClass('even odd').addClass(odd ? 'odd' : 'even');
+                $start.after($r0);
+
+                odd = odd ? false : true;
+            }
+        }
+    }
+
+    function workGroupEquipment() {
+
+        let $pqr = $(
+            `<div id="pqr" class="ordertool" style="cursor: pointer;">
+                <table class="ordercont">
+                <tbody>
+                    <tr>
+                        <td class="title-ordertool" > PQR </td>
+                        <td class="arrows">
+                            <a id="pqrasc"  href="#"><img src="/img/asc.gif" alt= "^" width= "9" height= "6" border= "0" ></a>
+                            <a id="pqrdesc"  href="#"><img src="/img/desc.gif" alt="v" width="9" height="6" border="0"></a>
+                        </td>
+                    </tr>
+                </tbody>
+                </table>
+                <span id="sort" class="add_info">none</span>
+            </div>`
+        );
+
+        let $grid = $("form[name='supplyEquipmentForm'] table.list");
+        //let $thPrice = $grid.find("th:contains('Цена')");
+        //let $thQual = $grid.find("th:contains('Качество')");
+
+        // завернем в хедер.
+        $grid.find("th").eq(4).after($pqr.wrapAll("<th></th>").closest("th"));
+
+        let $rows = $grid.find("tr").has("img[src*='unit_types']");
+
+        // спарсим ряды в объект который будем сортировать. сразу и pqr посчитаем
+        let priceSel = ($r: JQuery) => $r.find("td:nth-child(5)");
+        let qualSel = ($r: JQuery) => $r.find("td:nth-child(6)");
+        let order: ISortData[] = parseRows($rows, priceSel, qualSel);
+
+        // пропихнем везде ячейку со значением pqr
+        for (let i = 0; i < order.length; i++)
+            qualSel(order[i].$r).after(buildHtmlTD(order[i].place, order[i].pqr));
+
+        $pqr.on("click", (event) => {
+            onClick($pqr, event, sort_table);
+            return false;
+        });
+
+        function sort_table(type: Sort) {
+            let $start = $grid.find("tbody tr").first();
+            let sorted = sortData(order, type);
+
+            let odd = false;
+            for (let i = sorted.length - 1; i >= 0; i--) {
+                let $r0 = sorted[i].$r;
                 $r0.removeClass('even odd').addClass(odd ? 'odd' : 'even');
                 $start.after($r0);
 

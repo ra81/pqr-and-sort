@@ -6,9 +6,11 @@
 // @include        http*://virtonomic*.*/*/window/unit/supply/create/*/step2
 // @include        http*://virtonomic*.*/*/window/unit/equipment/*
 // @include        http*://virtonomic*.*/*/main/globalreport/marketing/by_products/*
+// @include        http*://virtonomic*.*/*/window/management_units/equipment/buy
+// @include        http*://virtonomic*.*/*/window/management_units/equipment/repair
 // @require        https://code.jquery.com/jquery-1.11.1.min.js
-// @version        1.5
-// ==/UserScript== 
+// @version        1.6
+// ==/UserScript==
 // 
 // Набор вспомогательных функций для использования в других проектах. Универсальные
 //   /// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
@@ -63,7 +65,7 @@ function getRealm() {
     return m[1];
 }
 /**
- * Парсит id компании со страницы
+ * Парсит id компании со страницы и выдает ошибку если не может спарсить
  */
 function getCompanyId() {
     var str = matchedOrError($("a.dashboard").attr("href"), /\d+/);
@@ -271,19 +273,60 @@ function sayMoney(num, symbol) {
     }
     return result;
 }
+// отчет по подразделениями из отчетов
 var url_company_finance_rep_byUnit = /\/[a-z]+\/main\/company\/view\/\d+\/finance_report\/by_units$/i;
-var url_my_unit_list_rx = /\/[a-z]+\/main\/company\/view\/\d+(\/unit_list)?$/i;
+var url_unit_list_rx = /\/[a-z]+\/(?:main|window)\/company\/view\/\d+(\/unit_list)?$/i;
 var url_unit_main_rx = /\/\w+\/main\/unit\/view\/\d+\/?$/i;
 var url_unit_finance_report = /\/[a-z]+\/main\/unit\/view\/\d+\/finans_report(\/graphical)?$/i;
 var url_trade_hall_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/trading_hall\/?/i;
 var url_visitors_history_rx = /\/[a-z]+\/main\/unit\/view\/\d+\/visitors_history\/?/i;
+// в окне управления юнитами групповой ремонт или закупка оборудования
+var url_group_equip_rx = /\/[a-z]+\/window\/management_units\/equipment\/(?:buy|repair)$/i;
+// заказ товара в маг, или склад. в общем стандартный заказ товара
+var url_supply_rx = /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i;
+// заказ оборудования на завод, лабу или куда то еще
+var url_equipment_rx = /\/[a-z]+\/window\/unit\/equipment\/\d+\/?$/i;
+// глобальный отчет по продукции из аналитики
+var url_products_globalrep_rx = /[a-z]+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/i;
+/**
+ * Проверяет что мы именно на своей странице со списком юнитов. По ссылке и id компании
+ * Проверок по контенту не проводит.
+ */
 function isMyUnitList() {
-    if (url_my_unit_list_rx.test(document.location.pathname) === false)
+    // для своих и чужих компани ссылка одна, поэтому проверяется и id
+    if (url_unit_list_rx.test(document.location.pathname) === false)
         return false;
-    // помимо ссылки мы можем находиться на чужой странице юнитов
-    if ($("#mainContent > table.unit-top").length === 0
-        || $("#mainContent > table.unit-list-2014").length === 0)
+    // запрос id может вернуть ошибку если мы на window ссылке. значит точно у чужого васи
+    try {
+        var id = getCompanyId();
+        var urlId = extractIntPositive(document.location.pathname); // полюбому число есть иначе регекс не пройдет
+        if (urlId[0] != id)
+            return false;
+    }
+    catch (err) {
         return false;
+    }
+    return true;
+}
+/**
+ * Проверяет что мы именно на чужой!! странице со списком юнитов. По ссылке.
+ * Проверок по контенту не проводит.
+ */
+function isOthersUnitList() {
+    // для своих и чужих компани ссылка одна, поэтому проверяется и id
+    if (url_unit_list_rx.test(document.location.pathname) === false)
+        return false;
+    try {
+        // для чужого списка будет разный айди в дашборде и в ссылке
+        var id = getCompanyId();
+        var urlId = extractIntPositive(document.location.pathname); // полюбому число есть иначе регекс не пройдет
+        if (urlId[0] === id)
+            return false;
+    }
+    catch (err) {
+        // походу мы на чужом window списке. значит ок
+        return true;
+    }
     return true;
 }
 function isUnitMain() {
@@ -410,14 +453,13 @@ function run() {
     }
     // проверим где мы и вызовем верную функцию
     var path = document.location.pathname;
-    var rxSupply = new RegExp(/.*\/unit\/supply\/create\/\d+\/step2\/?$/gi);
-    var rxEquip = new RegExp(/.*\/unit\/equipment\/\d+\/?$/gi);
-    var rxProducts = new RegExp(/.*\/main\/globalreport\/marketing\/by_products\/\d+\/?/gi);
-    if (rxSupply.test(path))
+    if (url_supply_rx.test(path))
         workSupply();
-    if (rxEquip.test(path))
+    if (url_equipment_rx.test(path))
         workEquipment();
-    if (rxProducts.test(path))
+    if (url_group_equip_rx.test(path))
+        workGroupEquipment();
+    if (url_products_globalrep_rx.test(path))
         workProduct();
     function workProduct() {
         var $pqr = $("<div id=\"pqr\" class=\"ordertool\" style=\"cursor: pointer;\">\n                <table class=\"ordercont\">\n                <tbody>\n                    <tr>\n\t                    <td class=\"title-ordertool\">PQR</td>\n\t                    <td class=\"arrows\">\n                            <a id=\"pqrasc\" href=\"#\"><img src=\"/img/asc.gif\" alt=\"^\" width=\"9\" height=\"6\" border=\"0\"></a>\n                            <a id=\"pqrdesc\" href=\"#\"><img src=\"/img/desc.gif\" alt=\"v\" width=\"9\" height=\"6\" border=\"0\"></a>\n                        </td>\n                    </tr>\n                </tbody>\n                </table>\n                <span id=\"sort\" class=\"subvalue\">none</span>\n            </div>");
@@ -468,6 +510,37 @@ function run() {
             var odd = false;
             for (var i = order.length - 1; i >= 0; i--) {
                 var $r0 = order[i].$r;
+                $r0.removeClass('even odd').addClass(odd ? 'odd' : 'even');
+                $start.after($r0);
+                odd = odd ? false : true;
+            }
+        }
+    }
+    function workGroupEquipment() {
+        var $pqr = $("<div id=\"pqr\" class=\"ordertool\" style=\"cursor: pointer;\">\n                <table class=\"ordercont\">\n                <tbody>\n                    <tr>\n                        <td class=\"title-ordertool\" > PQR </td>\n                        <td class=\"arrows\">\n                            <a id=\"pqrasc\"  href=\"#\"><img src=\"/img/asc.gif\" alt= \"^\" width= \"9\" height= \"6\" border= \"0\" ></a>\n                            <a id=\"pqrdesc\"  href=\"#\"><img src=\"/img/desc.gif\" alt=\"v\" width=\"9\" height=\"6\" border=\"0\"></a>\n                        </td>\n                    </tr>\n                </tbody>\n                </table>\n                <span id=\"sort\" class=\"add_info\">none</span>\n            </div>");
+        var $grid = $("form[name='supplyEquipmentForm'] table.list");
+        //let $thPrice = $grid.find("th:contains('Цена')");
+        //let $thQual = $grid.find("th:contains('Качество')");
+        // завернем в хедер.
+        $grid.find("th").eq(4).after($pqr.wrapAll("<th></th>").closest("th"));
+        var $rows = $grid.find("tr").has("img[src*='unit_types']");
+        // спарсим ряды в объект который будем сортировать. сразу и pqr посчитаем
+        var priceSel = function ($r) { return $r.find("td:nth-child(5)"); };
+        var qualSel = function ($r) { return $r.find("td:nth-child(6)"); };
+        var order = parseRows($rows, priceSel, qualSel);
+        // пропихнем везде ячейку со значением pqr
+        for (var i = 0; i < order.length; i++)
+            qualSel(order[i].$r).after(buildHtmlTD(order[i].place, order[i].pqr));
+        $pqr.on("click", function (event) {
+            onClick($pqr, event, sort_table);
+            return false;
+        });
+        function sort_table(type) {
+            var $start = $grid.find("tbody tr").first();
+            var sorted = sortData(order, type);
+            var odd = false;
+            for (var i = sorted.length - 1; i >= 0; i--) {
+                var $r0 = sorted[i].$r;
                 $r0.removeClass('even odd').addClass(odd ? 'odd' : 'even');
                 $start.after($r0);
                 odd = odd ? false : true;
