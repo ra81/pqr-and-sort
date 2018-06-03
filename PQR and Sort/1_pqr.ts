@@ -1,4 +1,4 @@
-﻿/// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />
+﻿
 
 enum Sort { none, asc, desc };
 interface ISortData {
@@ -8,6 +8,14 @@ interface ISortData {
 }
 
 function run() {
+
+    let Url_rx = {
+        v_global_products: /[a-z]+\/main\/globalreport\/marketing\/by_products\/\d+\/?$/i,  // Аналитика - Маркетинг - Продукция
+        comp_manage_equipment: /\/[a-z]+\/window\/management_units\/equipment\/(?:buy|repair)\/?$/i,       // управление оборудованием купить/ ремонт
+        unit_supply_create: /\/[a-z]+\/unit\/supply\/create\/\d+\/step2\/?$/i,      // заказ товара в маг, или склад. в общем стандартный заказ товара
+        unit_equipment: /\/[a-z]+\/window\/unit\/equipment\/\d+\/?$/ig,             // оборудование
+    };
+
 
     let $ = jQuery;
     let realm = getRealm();
@@ -28,16 +36,16 @@ function run() {
 
     // проверим где мы и вызовем верную функцию
     let path = document.location.pathname;
-    if (url_supply_rx.test(path))
+    if (Url_rx.unit_supply_create.test(path))
         workSupply();
 
-    if (url_equipment_rx.test(path))
+    if (Url_rx.unit_equipment.test(path))
         workEquipment();
 
-    if (url_group_equip_rx.test(path))
+    if (Url_rx.comp_manage_equipment.test(path))
         workGroupEquipment();
 
-    if (url_products_globalrep_rx.test(path))
+    if (Url_rx.v_global_products.test(path))
         workProduct();
 
 
@@ -373,5 +381,62 @@ function sortData(items: ISortData[], type: Sort): ISortData[] {
 function buildHtmlTD(i: number, pqr: number): string {
     return `<td id='pqr_${i}' class='pqr_data' style='color: blue; width: 70px; text-align: right;'>${pqr.toFixed(2)}</td>`;
 }
+
+function getRealm(): string | null {
+    // https://*virtonomic*.*/*/main/globalreport/marketing/by_trade_at_cities/*
+    // https://*virtonomic*.*/*/window/globalreport/marketing/by_trade_at_cities/*
+    let rx = new RegExp(/https:\/\/virtonomic[A-Za-z]+\.[a-zA-Z]+\/([a-zA-Z]+)\/.+/ig);
+    let m = rx.exec(document.location.href);
+    if (m == null)
+        return null;
+
+    return m[1];
+}
+function closestByTagName(items: JQuery, tagname: string): JQuery {
+    let tag = tagname.toUpperCase();
+
+    let found: Node[] = [];
+    for (let i = 0; i < items.length; i++) {
+        let node: Node = items[i];
+        while ((node = node.parentNode) && node.nodeName != tag) { };
+
+        if (node)
+            found.push(node);
+    }
+
+    return $(found);
+}
+function numberfy(str: string): number {
+    // возвращает либо число полученно из строки, либо БЕСКОНЕЧНОСТЬ, либо -1 если не получилось преобразовать.
+
+    if (String(str) === 'Не огр.' ||
+        String(str) === 'Unlim.' ||
+        String(str) === 'Не обм.' ||
+        String(str) === 'N’est pas limité' ||
+        String(str) === 'No limitado' ||
+        String(str) === '无限' ||
+        String(str) === 'Nicht beschr.') {
+        return Number.POSITIVE_INFINITY;
+    } else {
+        // если str будет undef null или что то страшное, то String() превратит в строку после чего парсинг даст NaN
+        // не будет эксепшнов
+        let n = parseFloat(cleanStr(String(str)));
+        return isNaN(n) ? -1 : n;
+    }
+}
+function numberfyOrError(str: string, minVal: number = 0, infinity: boolean = false) {
+    let n = numberfy(str);
+    if (!infinity && (n === Number.POSITIVE_INFINITY || n === Number.NEGATIVE_INFINITY))
+        throw new RangeError("Получили бесконечность, что запрещено.");
+
+    if (n <= minVal) // TODO: как то блять неудобно что мин граница не разрешается. удобнее было бы если б она была разрешена
+        throw new RangeError("Число должно быть > " + minVal);
+
+    return n;
+}
+function cleanStr(str: string): string {
+    return str.replace(/[\s\$\%\©]/g, "");
+}
+
 
 $(document).ready(() => run());
