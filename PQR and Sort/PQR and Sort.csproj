@@ -23,7 +23,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="index.html" />
-    <Content Include="readme.txt" />
     <Content Include="web.config" />
   </ItemGroup>
   <ItemGroup>
