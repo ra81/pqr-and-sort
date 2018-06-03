@@ -9,7 +9,7 @@
 // @include        http*://virtonomic*.*/*/window/management_units/equipment/buy
 // @include        http*://virtonomic*.*/*/window/management_units/equipment/repair
 // @require        https://code.jquery.com/jquery-1.11.1.min.js
-// @version        1.7
+// @version        1.8
 // ==/UserScript==
 ///// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" /> 
 var Sort;
@@ -139,7 +139,7 @@ function run() {
     function workSupply() {
         var $pqr = $("     <div id=\"pqr\" class=\"field_title\" style=\"cursor: pointer;\">PQR\n                                <div>\n                                <div class=\"asc\" title=\"\u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0430 \u043F\u043E \u0432\u043E\u0437\u0440\u0430\u0441\u0442\u0430\u043D\u0438\u044E\">\n                                    <a id=\"pqrasc\" href=\"#\"><img src=\"/img/up_gr_sort.png\"></a>\n                                </div>\n                                <div class=\"desc\" title=\"\u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0430 \u043F\u043E \u0443\u0431\u044B\u0432\u0430\u043D\u0438\u044E\">\n                                    <a id=\"pqrdesc\" href=\"#\"><img src=\"/img/down_gr_sort.png\"></a>\n                                </div>\n                                <span id=\"sort\" class=\"subvalue\">none</span>\n                                </div>\n                            </div>");
         // завернем в хедер.
-        $("#supply_content th").eq(4).after($pqr.wrapAll("<th></th>").closest("th"));
+        $("table.unit-list-2014 th").eq(4).after($pqr.wrapAll("<th></th>").closest("th"));
         var $rows = $("tr[id^=r]"); // все поставщики имеют id=r4534534 
         // спарсим ряды в объект который будем сортировать. сразу и pqr посчитаем
         var priceSel = function ($r) { return $r.find("td:nth-child(6)"); };

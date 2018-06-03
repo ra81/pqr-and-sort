@@ -9,7 +9,7 @@
 // @include        http*://virtonomic*.*/*/window/management_units/equipment/buy
 // @include        http*://virtonomic*.*/*/window/management_units/equipment/repair
 // @require        https://code.jquery.com/jquery-1.11.1.min.js
-// @version        1.7
+// @version        1.8
 // ==/UserScript==
 
 ///// <reference path= "../../_jsHelper/jsHelper/jsHelper.ts" />

@@ -228,7 +228,7 @@ function run() {
                             </div>`);
 
         // завернем в хедер.
-        $("#supply_content th").eq(4).after($pqr.wrapAll("<th></th>").closest("th"));
+        $("table.unit-list-2014 th").eq(4).after($pqr.wrapAll("<th></th>").closest("th"));
 
         let $rows = $("tr[id^=r]"); // все поставщики имеют id=r4534534 
 
